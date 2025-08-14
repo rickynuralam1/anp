@@ -28,6 +28,7 @@ const handleLogout = async () => {
     if (response.ok) {
       localStorage.removeItem('id')
       localStorage.removeItem('token')
+      localStorage.removeItem('role')
       router.push('/pages/login') // Gunakan router push agar tidak reload
     } else {
       const resText = await response.text()

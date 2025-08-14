@@ -1,349 +1,234 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { CChart } from '@coreui/vue-chartjs'
 import { getStyle } from '@coreui/utils'
+import axios from 'axios'
 
-const widgetChartRef1 = ref()
-const widgetChartRef2 = ref()
+// Labels bulan untuk chart
+const chartLabels = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'
+]
+
+// Total keseluruhan per kategori
+const totalApproved = ref(0)
+const totalRejected = ref(0)
+const totalSubmitted = ref(0)
+const totalAll = ref(0)
+
+// Data per bulan masing-masing kategori (array 12 bulan)
+const approvedCounts = ref(new Array(12).fill(0))
+const rejectedCounts = ref(new Array(12).fill(0))
+const submittedCounts = ref(new Array(12).fill(0))
+const totalCounts = ref(new Array(12).fill(0))
+
+// Chart data untuk bind ke CChart
+const chartDataApproved = ref({})
+const chartDataRejected = ref({})
+const chartDataSubmitted = ref({})
+const chartDataTotal = ref({})
+
+// Fungsi hitung % perubahan bulan ini dibanding sebelumnya
+function calculateChangePercent(arr) {
+  const currentMonthIndex = new Date().getMonth()
+  const prevMonthIndex = currentMonthIndex === 0 ? 11 : currentMonthIndex - 1
+  const currentValue = arr[currentMonthIndex] || 0
+  const prevValue = arr[prevMonthIndex] || 0
+  if (prevValue === 0) return currentValue === 0 ? 0 : 100
+  return Math.round(((currentValue - prevValue) / prevValue) * 100)
+}
+
+// Fungsi arah panah dari persen
+function getArrowDirection(percent) {
+  if (percent > 0) return 'up'
+  if (percent < 0) return 'down'
+  return 'neutral'
+}
+
+// Update chart data
+function updateChartData() {
+  function createChartData(dataArray, borderColor, pointColor) {
+    return {
+      labels: chartLabels,
+      datasets: [
+        {
+          label: 'Count',
+          backgroundColor: 'transparent',
+          borderColor,
+          pointBackgroundColor: pointColor,
+          data: dataArray,
+          borderWidth: 2,
+          tension: 0.4,
+        },
+      ],
+    }
+  }
+  chartDataApproved.value = createChartData(
+    approvedCounts.value,
+    'rgba(40, 167, 69, 0.8)',
+    'rgba(40, 167, 69, 1)'
+  )
+  chartDataRejected.value = createChartData(
+    rejectedCounts.value,
+    'rgba(220, 53, 69, 0.8)',
+    'rgba(220, 53, 69, 1)'
+  )
+  chartDataSubmitted.value = createChartData(
+    submittedCounts.value,
+    'rgba(0, 123, 255, 0.8)',
+    'rgba(0, 123, 255, 1)'
+  )
+  chartDataTotal.value = createChartData(
+    totalCounts.value,
+    'rgba(108, 117, 125, 0.8)',
+    'rgba(108, 117, 125, 1)'
+  )
+}
+
+// Ambil data dari API dan hitung statistik
+async function fetchApiData() {
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) throw new Error('Token not found, please login.')
+
+    const res = await axios.post(
+      '/api/restv2/createApi/api/getDataApi',
+      { token },
+      {
+        headers: {
+          Authorization: 'Basic QWRtaW46bWFuYWdl',
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+
+    const dataApis = res.data.responseData?.results || []
+
+    // Reset array hitung per bulan
+    approvedCounts.value = new Array(12).fill(0)
+    rejectedCounts.value = new Array(12).fill(0)
+    submittedCounts.value = new Array(12).fill(0)
+    totalCounts.value = new Array(12).fill(0)
+
+    const currentYear = new Date().getFullYear()
+
+    dataApis.forEach(item => {
+      if (item.createdate) {
+        const normalizedDateStr = item.createdate.replace(/\//g, ' ')
+        const date = new Date(normalizedDateStr)
+        if (!isNaN(date) && date.getFullYear() === currentYear) {
+          const month = date.getMonth()
+          totalCounts.value[month]++
+          const approval = (item.approval || '').toUpperCase()
+          if (approval === 'APPROVED') approvedCounts.value[month]++
+          else if (approval === 'REJECTED') rejectedCounts.value[month]++
+          else if (approval === 'SUBMITTED') submittedCounts.value[month]++
+        }
+      }
+    })
+
+    // Total keseluruhan
+    totalApproved.value = approvedCounts.value.reduce((a, b) => a + b, 0)
+    totalRejected.value = rejectedCounts.value.reduce((a, b) => a + b, 0)
+    totalSubmitted.value = submittedCounts.value.reduce((a, b) => a + b, 0)
+    totalAll.value = totalCounts.value.reduce((a, b) => a + b, 0)
+
+    updateChartData()
+  } catch (error) {
+    console.error('Error fetching API data:', error)
+  }
+}
 
 onMounted(() => {
-  document.documentElement.addEventListener('ColorSchemeChange', () => {
-    if (widgetChartRef1.value) {
-      widgetChartRef1.value.chart.data.datasets[0].pointBackgroundColor = getStyle('--cui-primary')
-      widgetChartRef1.value.chart.update()
-    }
-
-    if (widgetChartRef2.value) {
-      widgetChartRef2.value.chart.data.datasets[0].pointBackgroundColor = getStyle('--cui-info')
-      widgetChartRef2.value.chart.update()
-    }
-  })
+  fetchApiData()
 })
+
+// Opsi chart umum
+const chartOptions = {
+  plugins: { legend: { display: false } },
+  maintainAspectRatio: false,
+  scales: {
+    x: { border: { display: false }, grid: { display: false }, ticks: { display: false } },
+    y: { min: 0, display: false, grid: { display: false }, ticks: { display: false } },
+  },
+  elements: { line: { borderWidth: 2, tension: 0.4 }, point: { radius: 4, hitRadius: 10, hoverRadius: 4 } },
+}
 </script>
 
 <template>
   <CRow :xs="{ gutter: 4 }">
-    <CCol :sm="6" :xl="4" :xxl="3">
-      <CWidgetStatsA color="primary">
-        <template #value
-          >26K
-          <span class="fs-6 fw-normal"> (-12.4% <CIcon icon="cil-arrow-bottom" />) </span>
+    <CCol v-for="(chart, i) in [
+      {
+        title: 'Approved',
+        total: totalApproved,
+        counts: approvedCounts,
+        chartData: chartDataApproved,
+        color: 'primary',
+        borderColor: 'rgba(40, 167, 69, 0.8)',
+        pointColor: 'rgba(40, 167, 69, 1)',
+      },
+      {
+        title: 'Rejected',
+        total: totalRejected,
+        counts: rejectedCounts,
+        chartData: chartDataRejected,
+        color: 'warning',
+        borderColor: 'rgba(220, 53, 69, 0.8)',
+        pointColor: 'rgba(220, 53, 69, 1)',
+      },
+      {
+        title: 'Submitted',
+        total: totalSubmitted,
+        counts: submittedCounts,
+        chartData: chartDataSubmitted,
+        color: 'success',
+        borderColor: 'rgba(0, 123, 255, 0.8)',
+        pointColor: 'rgba(0, 123, 255, 1)',
+      },
+      {
+        title: 'Requests',
+        total: totalAll,
+        counts: totalCounts,
+        chartData: chartDataTotal,
+        color: 'info',
+        borderColor: 'rgba(108, 117, 125, 0.8)',
+        pointColor: 'rgba(108, 117, 125, 1)',
+      },
+    ]"
+    :key="i" :sm="6" :xl="3">
+      <CWidgetStatsA :color="chart.color">
+        <template #value>
+          {{ chart.total }} Apis
+          <span class="fs-6 fw-normal ms-2 d-inline-flex align-items-center">
+            <CIcon
+              v-if="getArrowDirection(calculateChangePercent(chart.counts)) === 'up'"
+              icon="cil-arrow-top"
+              class="text-success me-1"
+            />
+            <CIcon
+              v-else-if="getArrowDirection(calculateChangePercent(chart.counts)) === 'down'"
+              icon="cil-arrow-bottom"
+              class="text-danger me-1"
+            />
+            <span
+              :class="{
+                'text-success': getArrowDirection(calculateChangePercent(chart.counts)) === 'up',
+                'text-danger': getArrowDirection(calculateChangePercent(chart.counts)) === 'down',
+                'text-muted': getArrowDirection(calculateChangePercent(chart.counts)) === 'neutral',
+              }"
+            >
+              {{ Math.abs(calculateChangePercent(chart.counts)) }}%
+            </span>
+          </span>
         </template>
-        <template #title>Users</template>
-        <template #action>
-          <CDropdown placement="bottom-end">
-            <CDropdownToggle color="transparent" class="p-0 text-white" :caret="false">
-              <CIcon icon="cil-options" class="text-white" />
-            </CDropdownToggle>
-            <CDropdownMenu>
-              <CDropdownItem href="#">Action</CDropdownItem>
-              <CDropdownItem href="#">Another action</CDropdownItem>
-              <CDropdownItem href="#">Something else here</CDropdownItem>
-            </CDropdownMenu>
-          </CDropdown>
-        </template>
+        <template #title>{{ chart.title }}</template>
         <template #chart>
           <CChart
             type="line"
             class="mt-3 mx-3"
             style="height: 70px"
-            ref="widgetChartRef1"
-            :data="{
-              labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-              datasets: [
-                {
-                  label: 'My First dataset',
-                  backgroundColor: 'transparent',
-                  borderColor: 'rgba(255,255,255,.55)',
-                  pointBackgroundColor: getStyle('--cui-primary'),
-                  data: [68, 59, 84, 84, 51, 55, 40],
-                },
-              ],
-            }"
-            :options="{
-              plugins: {
-                legend: {
-                  display: false,
-                },
-              },
-              maintainAspectRatio: false,
-              scales: {
-                x: {
-                  border: {
-                    display: false,
-                  },
-                  grid: {
-                    display: false,
-                  },
-                  ticks: {
-                    display: false,
-                  },
-                },
-                y: {
-                  min: 30,
-                  max: 89,
-                  display: false,
-                  grid: {
-                    display: false,
-                  },
-                  ticks: {
-                    display: false,
-                  },
-                },
-              },
-              elements: {
-                line: {
-                  borderWidth: 1,
-                  tension: 0.4,
-                },
-                point: {
-                  radius: 4,
-                  hitRadius: 10,
-                  hoverRadius: 4,
-                },
-              },
-            }"
-          />
-        </template>
-      </CWidgetStatsA>
-    </CCol>
-    <CCol :sm="6" :xl="4" :xxl="3">
-      <CWidgetStatsA color="info">
-        <template #value
-          >$6.200
-          <span class="fs-6 fw-normal"> (40.9% <CIcon icon="cil-arrow-top" />) </span>
-        </template>
-        <template #title>Income</template>
-        <template #action>
-          <CDropdown placement="bottom-end">
-            <CDropdownToggle color="transparent" class="p-0 text-white" :caret="false">
-              <CIcon icon="cil-options" class="text-white" />
-            </CDropdownToggle>
-            <CDropdownMenu>
-              <CDropdownItem href="#">Action</CDropdownItem>
-              <CDropdownItem href="#">Another action</CDropdownItem>
-              <CDropdownItem href="#">Something else here</CDropdownItem>
-            </CDropdownMenu>
-          </CDropdown>
-        </template>
-        <template #chart>
-          <CChart
-            type="line"
-            class="mt-3 mx-3"
-            style="height: 70px"
-            ref="widgetChartRef2"
-            :data="{
-              labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-              datasets: [
-                {
-                  label: 'My First dataset',
-                  backgroundColor: 'transparent',
-                  borderColor: 'rgba(255,255,255,.55)',
-                  pointBackgroundColor: getStyle('--cui-info'),
-                  data: [1, 18, 9, 17, 34, 22, 11],
-                },
-              ],
-            }"
-            :options="{
-              plugins: {
-                legend: {
-                  display: false,
-                },
-              },
-              maintainAspectRatio: false,
-              scales: {
-                x: {
-                  border: {
-                    display: false,
-                  },
-                  grid: {
-                    display: false,
-                  },
-                  ticks: {
-                    display: false,
-                  },
-                },
-                y: {
-                  min: -9,
-                  max: 39,
-                  display: false,
-                  grid: {
-                    display: false,
-                  },
-                  ticks: {
-                    display: false,
-                  },
-                },
-              },
-              elements: {
-                line: {
-                  borderWidth: 1,
-                },
-                point: {
-                  radius: 4,
-                  hitRadius: 10,
-                  hoverRadius: 4,
-                },
-              },
-            }"
-          />
-        </template>
-      </CWidgetStatsA>
-    </CCol>
-    <CCol :sm="6" :xl="4" :xxl="3">
-      <CWidgetStatsA color="warning">
-        <template #value
-          >2.49%
-          <span class="fs-6 fw-normal"> (84.7% <CIcon icon="cil-arrow-top" />) </span>
-        </template>
-        <template #title>Conversion Rate</template>
-        <template #action>
-          <CDropdown placement="bottom-end">
-            <CDropdownToggle color="transparent" class="p-0 text-white" :caret="false">
-              <CIcon icon="cil-options" class="text-white" />
-            </CDropdownToggle>
-            <CDropdownMenu>
-              <CDropdownItem href="#">Action</CDropdownItem>
-              <CDropdownItem href="#">Another action</CDropdownItem>
-              <CDropdownItem href="#">Something else here</CDropdownItem>
-            </CDropdownMenu>
-          </CDropdown>
-        </template>
-        <template #chart>
-          <CChart
-            type="line"
-            class="mt-3"
-            style="height: 70px"
-            :data="{
-              labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
-              datasets: [
-                {
-                  label: 'My First dataset',
-                  backgroundColor: 'rgba(255,255,255,.2)',
-                  borderColor: 'rgba(255,255,255,.55)',
-                  data: [78, 81, 80, 45, 34, 12, 40],
-                  fill: true,
-                },
-              ],
-            }"
-            :options="{
-              plugins: {
-                legend: {
-                  display: false,
-                },
-              },
-              maintainAspectRatio: false,
-              scales: {
-                x: {
-                  border: {
-                    display: false,
-                  },
-                  display: false,
-                },
-                y: {
-                  display: false,
-                },
-              },
-              elements: {
-                line: {
-                  borderWidth: 2,
-                  tension: 0.4,
-                },
-                point: {
-                  radius: 0,
-                  hitRadius: 10,
-                  hoverRadius: 4,
-                },
-              },
-            }"
-          />
-        </template>
-      </CWidgetStatsA>
-    </CCol>
-    <CCol :sm="6" :xl="4" :xxl="3">
-      <CWidgetStatsA color="danger">
-        <template #value
-          >44K
-          <span class="fs-6 fw-normal"> (-23.6% <CIcon icon="cil-arrow-bottom" />) </span>
-        </template>
-        <template #title>Sessions</template>
-        <template #action>
-          <CDropdown placement="bottom-end">
-            <CDropdownToggle color="transparent" class="p-0 text-white" :caret="false">
-              <CIcon icon="cil-options" class="text-white" />
-            </CDropdownToggle>
-            <CDropdownMenu>
-              <CDropdownItem href="#">Action</CDropdownItem>
-              <CDropdownItem href="#">Another action</CDropdownItem>
-              <CDropdownItem href="#">Something else here</CDropdownItem>
-            </CDropdownMenu>
-          </CDropdown>
-        </template>
-        <template #chart>
-          <CChart
-            type="bar"
-            class="mt-3 mx-3"
-            style="height: 70px"
-            :data="{
-              labels: [
-                'January',
-                'February',
-                'March',
-                'April',
-                'May',
-                'June',
-                'July',
-                'August',
-                'September',
-                'October',
-                'November',
-                'December',
-                'January',
-                'February',
-                'March',
-                'April',
-              ],
-              datasets: [
-                {
-                  label: 'My First dataset',
-                  backgroundColor: 'rgba(255,255,255,.2)',
-                  borderColor: 'rgba(255,255,255,.55)',
-                  data: [78, 81, 80, 45, 34, 12, 40, 85, 65, 23, 12, 98, 34, 84, 67, 82],
-                  barPercentage: 0.6,
-                },
-              ],
-            }"
-            :options="{
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  display: false,
-                },
-              },
-              scales: {
-                x: {
-                  grid: {
-                    display: false,
-                    drawTicks: false,
-                  },
-                  ticks: {
-                    display: false,
-                  },
-                },
-                y: {
-                  border: {
-                    display: false,
-                  },
-                  grid: {
-                    display: false,
-                    drawTicks: false,
-                  },
-                  ticks: {
-                    display: false,
-                  },
-                },
-              },
-            }"
+            :data="chart.chartData"
+            :options="chartOptions"
           />
         </template>
       </CWidgetStatsA>

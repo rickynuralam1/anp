@@ -354,7 +354,7 @@ async function submitApproval() {
       showApprovalModal.value = false
       await fetchData()
     } else {
-      alert('Gagal approval: ' + (res.data.responseMessage || 'Unknown error'))
+      alert('Approval: ' + (res.data.responseMessage || 'Unknown error'))
     }
   } catch (error) {
     alert('Error saat approval: ' + (error.message || error))
@@ -683,8 +683,8 @@ onMounted(() => {
       <div class="row mb-3">
       <div class="col-md-3"><strong>Auth Type:</strong> <br>{{ selectedApi.authtype }}</div>
       <div class="col-md-3"><strong>Template:</strong> <br>{{ selectedApi.typetemplate }}</div>
-      <div class="col-md-3"><strong>Base URL:</strong> <br>{{ selectedApi.baseurl }}</div>
       <div class="col-md-3"><strong>Path URL:</strong> <br>{{ selectedApi.pathurl }}</div>
+      <div class="col-md-3 text-break"><strong>Base URL:</strong> <br>{{ selectedApi.baseurl }}</div>
       </div>
       <div class="row mb-3">
       <div class="col-md-3"><strong>Created By:</strong> <br>{{ selectedApi.createby }}</div>

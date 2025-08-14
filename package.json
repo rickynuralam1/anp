@@ -12,7 +12,7 @@
   "license": "MIT",
   "author": "The CoreUI Team (https://github.com/orgs/coreui/people)",
   "scripts": {
-    "dev": "vite --force",
+    "dev": "vite --force --host",
     "build": "vite build",
     "lint": "eslint",
     "preview": "vite preview"
@@ -28,6 +28,7 @@
     "@popperjs/core": "^2.11.8",
     "axios": "^1.11.0",
     "chart.js": "^4.4.7",
+    "dayjs": "^1.11.13",
     "pinia": "^3.0.1",
     "simplebar-vue": "^2.4.0",
     "vue": "^3.5.13",

@@ -44,11 +44,6 @@
                         {{ loading ? 'Loading...' : 'Login' }}
                       </CButton>
                     </CCol>
-                    <CCol :xs="6" class="text-right">
-                      <CButton color="link" class="px-0">
-                        Forgot password?
-                      </CButton>
-                    </CCol>
                   </CRow>
                 </CForm>
               </CCardBody>
@@ -60,12 +55,13 @@
                 <div>
                   <h2>Sign up</h2>
                   <p>
-                    Lorem ipsum dolor sit amet, consectetur adipisicing elit,
-                    sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+                    Register your account now and start building APIs and Pipelines quickly and easily using ANP Engine.
                   </p>
-                  <CButton color="light" variant="outline" class="mt-3">
-                    Register Now!
-                  </CButton>
+                  <RouterLink to="register">
+                    <CButton color="light" variant="outline" class="mt-3">
+                      Register Now!
+                    </CButton>
+                  </RouterLink>
                 </div>
               </CCardBody>
             </CCard>

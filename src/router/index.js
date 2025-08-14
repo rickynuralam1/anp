@@ -30,11 +30,19 @@ const routes = [
           ),
       },
       {
+        path: 'configuration/server',
+        name: 'Configuration / Server',
+        component: () =>
+          import(
+            /* webpackChunkName: "Server" */ '@/views/base/server.vue'
+          ),
+      },
+      {
         path: '/user',
         name: 'User',
         component: () =>
           import(
-            /* webpackChunkName: "apis" */ '@/views/base/Apis.vue'
+            /* webpackChunkName: "user" */ '@/views/base/user.vue'
           ),
       },
       {
